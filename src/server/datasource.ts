@@ -18,7 +18,7 @@ export class ClickHouseDataSource extends DataSource {
       username: options.username,
       password: options.password == "" ? undefined : options.password,
       database: options.database,
-      url: `${options.useSSL?"https":"http"}://${options.host}:${options.port}`
+      url: `${options.useSSL ? "https" : "http"}://${options.host}:${options.port}`
     })
     this.__database = options.database
     this.__name = options.name
@@ -62,6 +62,8 @@ export class ClickHouseDataSource extends DataSource {
         a.type = "integer"
       else if (a.type.includes("float"))
         a.type = "float"
+      else if (a.type.includes("bool"))
+        a.type = "boolean"
       else if (a.type.includes("enum"))
         a.type = "string"
       else if (a.type.includes("uuid"))
