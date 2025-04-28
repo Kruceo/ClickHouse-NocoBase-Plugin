@@ -44,7 +44,6 @@ function verifyObj(obj, p: { clause: string }, lo: LogicalOperators) {
                 // is operator
                 const op = key
                 const value = obj[key]
-                console.log(op)
                 p.clause += (`${parseConditions(op, value)} ${lo.last}`)
             }
         }
@@ -98,13 +97,27 @@ function convertQuarterDate(input) {
 }
 
 function normalizeDateValue(value: string, moment?: "last" | "first" | "none") {
+    
     if (/\d+Q\d-/.test(value)) {
         return convertQuarterDate(value)
     }
-    else if (/\d\d-\d\d:/.test(value)) {
-        const fd = value.toString().split(/(?<=\d\d)-(?=\d\d:)/)
-        const t = fd[1].split(":")
+    else {
+        const splitPattern =/(?<=\d\d) (?=\d\d:)/
+        let fd = value.toString().split(splitPattern,2)
+        console.log(fd)
+        if(fd.length == 1){
+            // case the input dont have a timestamp (eg. 2020-12-10-03:00)
+            // this case just have date + timestamp
+            // this part of code add a 'zero' timestamp
+            value = value.replace(/(-|\+)\d\d:\d\d/,(gg)=>` 00:00:00${gg}`)
+            fd = value.split(splitPattern,2)
+        }
+        const [time,timezone] = fd[1].split(/(?=\+|-)/)
+        console.log("timezone",timezone)
+        const t = time.split(":")
+
         // just hour and minute
+        console.log(t)
         if (t.length == 2) {
             t.push("00")
         }
@@ -126,9 +139,7 @@ function normalizeDateValue(value: string, moment?: "last" | "first" | "none") {
             else if (moment == "first")
                 return `toStartOfDay(toLastDayOfMonth(toDate('${d[0]}-${d[1]}-${d[2]}')))`
         }
-
-
-        return `toDateTime('${d[0]}-${d[1]}-${d[2]} ${t[0]}:${t[1]}:${t[2]}')`
+        return `parseDateTimeBestEffort('${d[0]}-${d[1]}-${d[2]}T${t[0]}:${t[1]}:${t[2]}${timezone}')`
     }
 }
 
