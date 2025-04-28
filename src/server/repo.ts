@@ -129,9 +129,9 @@ export class ClickhouseRepository implements IRepository {
   async create({ values }: { values: Record<string, string | number> }) {
     console.log("[CLICKHOUSE PL] create", values)
     const keysStr = Object.keys(values)
-    const valuesStr = Object.values(values).reduce((ac,ne)=>`,'${ne}'${ac}`,"").toString().slice(1)
+    const valuesStr = keysStr.map(e=>values[e]).reduce((ac,ne)=>`,'${ne}'${ac}`,"").toString().slice(1)
     const query = `
-      INSERT INTO ${this.selectedTable} (${keysStr.toString()}) 
+      INSERT INTO ${this.selectedTable} (${keysStr.reverse().toString()}) 
       VALUES (${valuesStr});
     `
     console.log(query)
