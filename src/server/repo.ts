@@ -10,19 +10,61 @@ export class ClickhouseRepository implements IRepository {
     this.selectedTable = opt.options.name
   }
 
+  // helpers
+  generateQuery(options) {
+    const { limit, offset, sort, filter } = options
+
+    const sortDirection = sort?.at(0)?.startsWith("-") ? "DESC" : "ASC"
+
+    const whereClause = generateWhereClause(filter)
+
+    const query = `
+        SELECT * FROM ${this.selectedTable} 
+        ${whereClause ? `WHERE ${whereClause}` : ""}
+        ${sort ? `ORDER BY ${sort[0].replace("-", "")} ${sortDirection}` : ""}
+        ${limit ? `LIMIT ${offset}, ${limit}` : ""}
+      `
+
+    return query
+  }
+
+  generateCountQuery(options) {
+    const { filter } = options
+
+    const whereClause = generateWhereClause(filter)
+
+    const query = `
+        SELECT COUNT(*) as "total" FROM ${this.selectedTable} 
+        ${whereClause ? `WHERE ${whereClause}` : ""}
+      `
+
+    return query
+  }
+
+  generateDeleteQuery({ filterByTk }: { filterByTk: Record<string, string | string[]>[] }) {
+    let whereClause = ""
+    for (const c of filterByTk) {
+      let cl = ""
+      for (const key of Object.keys(c)) {
+        const type = typeof c[key]
+        const values = (type == "string" ? [c[key]] : c[key]) as unknown as string[]
+        console.log(key, values)
+        const arrayStr = values.reduce((ac, ne) => `,'${ne}'` + ac, "").slice(1)
+        console.log(arrayStr)
+        cl += ` AND ${key} IN [${arrayStr}]`
+      }
+      cl = cl.slice(5)
+      whereClause += cl
+    }
+    let query = `ALTER TABLE ${this.selectedTable} DELETE WHERE ${whereClause}`
+    return query
+  }
+
+  // originals from IRepository
   async find(options: { sort?: string[], offset: number, limit: number, filter: any }): Promise<IModel[]> {
     console.log("[CLICKHOUSE PL] find", options);
 
-    const { limit, offset, sort, filter } = options
-    console.log(JSON.stringify(filter["$and"]))
-
-    const sortDirection = sort?.at(0)?.startsWith("-") ? "DESC" : "ASC"
-    const query = `
-      SELECT * FROM ${this.selectedTable} 
-      WHERE ${generateWhereClause(filter)}
-      ${sort ? `ORDER BY ${sort[0].replace("-", "")} ${sortDirection}` : ""}
-      ${limit ? `LIMIT ${offset}, ${limit}` : ""}
-    `
+    const query = this.generateQuery(options)
 
     console.log(query)
 
@@ -42,19 +84,35 @@ export class ClickhouseRepository implements IRepository {
   }
 
   async findOne(options?: any): Promise<IModel> {
-    console.log("[CLICKHOUSE PL] find one", options)
-    return {
-      toJSON() {
+    console.log("[CLICKHOUSE PL] find one", options);
 
-      },
-    }
+    options.limit = 1
+    options.offset = 0
+
+    const query = this.generateQuery(options)
+
+    console.log(query)
+
+    const res = await this.ch.query({
+      query: query,
+      format: "JSON"
+    })
+
+    const data = await res.json<any>()
+    const results = data.data.map((item) => ({
+      ...item,
+      toJSON() {
+        return { ...item };
+      }
+    }));
+    return results[0]
   }
 
   async count(options?: any): Promise<Number> {
     console.log("[CLICKHOUSE PL] count")
-    console.log(options)
+
     const res = await this.ch.query({
-      query: `SELECT COUNT(*) as "total" FROM ${this.selectedTable}`,
+      query: this.generateCountQuery(options),
       format: "JSON"
     })
 
@@ -68,73 +126,35 @@ export class ClickhouseRepository implements IRepository {
     return [results, len as number];
   }
 
-  async create({ values }) {
-    throw new Error("Not implemented")
+  async create({ values }: { values: Record<string, string | number> }) {
+    console.log("[CLICKHOUSE PL] create", values)
+    const keysStr = Object.keys(values)
+    const valuesStr = Object.values(values).reduce((ac,ne)=>`,'${ne}'${ac}`,"").toString().slice(1)
+    const query = `
+      INSERT INTO ${this.selectedTable} (${keysStr.toString()}) 
+      VALUES (${valuesStr});
+    `
+    console.log(query)
+    await this.ch.command({query})
   }
 
   async update({ filter, values }) {
     throw new Error("Not implemented")
   }
 
-  async destroy({ filter }) {
-    throw new Error("Not implemented")
-  }
-}
+  async destroy(options) {
+    console.log("[CLICKHOUSE PL] delete")
 
-interface FilterOptions {
-  "$and"?: {
+    const query = this.generateDeleteQuery(options)
 
-  }[]
-  "$or"?: {
+    console.log(query)
 
-  }[]
-}
-
-function generateWhereFromOptions(filter: FilterOptions) {
-  const whereClauses: any[] = []
-  if (filter["$and"]) {
-    whereClauses.push(...parseConditions(filter["$and"]))
+    await this.ch.query({
+      query: query
+    })
   }
 
-  return whereClauses.reduce((acc, next) => " AND " + next + acc, "").slice(5)
+
 }
 
-function parseConditions(con: any[]) {
-  const whereClauses: string[] = []
-  for (const clause of con) {
-    const key = Object.keys(clause)[0]
-    let operator = Object.keys(clause[key])[0]
-    const value = clause[key][operator]
-    switch (operator) {
-      case "$gt":
-        operator = ">";
-        break;
-      case "$lt":
-        operator = "<"; // Aqui estava "<=" no seu, mas o correto de $lt é "<"
-        break;
-      case "$lte":
-        operator = "<="; // Aqui estava ">=" no seu, mas $lte é "menor ou igual"
-        break;
-      case "$gte":
-        operator = ">=";
-        break;
-      case "$eq":
-        operator = "=";
-        break;
-      case "$ne":
-        operator = "!=";
-        break;
-      case "$empty":
-        operator = "IS NULL";
-        break;
-      case "$notEmpty":
-        operator = "IS NOT NULL";
-        break;
-      default:
-        throw new Error(`Operador desconhecido: ${operator}`);
-    }
-    const outputClause = `${key} ${operator} ${typeof value != "boolean" ? value : ""}`
-    whereClauses.push(outputClause)
-  }
-  return whereClauses
-}
+
