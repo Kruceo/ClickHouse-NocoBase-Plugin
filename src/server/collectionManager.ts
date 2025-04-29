@@ -1,4 +1,4 @@
-import { Collection, CollectionManager, CollectionOptions, DataSource, ICollection, ICollectionManager, IRepository, MergeOptions } from "@nocobase/data-source-manager"
+import { Collection, CollectionManager, CollectionOptions, DataSource, ICollection, ICollectionManager, IRepository, MergeOptions, SequelizeCollectionManager } from "@nocobase/data-source-manager"
 import { ClickhouseRepository } from "./repo";
 
 
@@ -8,6 +8,7 @@ export class ClickhouseCollectionManager extends CollectionManager {
   protected repositories: Map<string, IRepository> = new Map();
 
   constructor(options?){
+    console.log("[CLICKHOUSE PL] creating collection manager")
     super(options)
   }  
 
@@ -17,7 +18,7 @@ export class ClickhouseCollectionManager extends CollectionManager {
     this.collections.set(options.name, collection);
     return collection;
   }
-
+ 
   newCollection(options): Collection {
     console.log("[CLICKHOUSE PL] new collection",options)
     const collection = new Collection({...options,repository:ClickhouseRepository},this);
@@ -34,5 +35,7 @@ export class ClickhouseCollectionManager extends CollectionManager {
     console.log("[CLICKHOUSE PL] get collections",opt)
     return [...this.collections.values()]
   }
+
+
 }
 

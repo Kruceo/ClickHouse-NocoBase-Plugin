@@ -1,17 +1,13 @@
-import { DataSource, ICollectionManager } from "@nocobase/data-source-manager"
+import { DataSource, ICollectionManager, SequelizeDataSource } from "@nocobase/data-source-manager"
 import { ClickhouseCollectionManager } from "./collectionManager";
 import { ClickHouseClient, createClient } from "@clickhouse/client";
-
-
-// import { DataSource, ICollectionManager } from '@nocobase/database';
 
 export class ClickHouseDataSource extends DataSource {
   private __name: string
   private __database: string;
   ch: ClickHouseClient;
-
+  
   constructor(options) {
-
     console.log("[CLICKHOUSE PL] construindo datasource", options)
     super(options)
     this.ch = createClient({
@@ -20,14 +16,16 @@ export class ClickHouseDataSource extends DataSource {
       database: options.database,
       url: `${options.useSSL ? "https" : "http"}://${options.host}:${options.port}`
     })
+    console.log(this.acl.getAvailableActions())
     this.__database = options.database
     this.__name = options.name
   }
-  static getDialect() {
-    return "custom";
+   getDialect() {
+    console.log("get dialect bro")
+    return "mysql";
   }
   // Retorna um gerenciador de coleção (deve ser implementado)sa
-  createCollectionManager(options?: any): ICollectionManager {
+  createCollectionManager(options?: any) {
     return new ClickhouseCollectionManager(options)
   }
 
@@ -55,42 +53,58 @@ export class ClickHouseDataSource extends DataSource {
         `.trim()
     })
 
-    const d = await res.json<{ type: string, name: string }>()
+    const d = await res.json<{ type: string, name: string, possibleTypes?:string[],rawType?:string }>()
     const formated = d.data.map((a) => {
+      a.rawType = a.type
       a.type = a.type.toLowerCase()
-      if (a.type.includes("int"))
+      if (a.type.includes("int")){
         a.type = "integer"
-      else if (a.type.includes("float"))
+        a.possibleTypes = ["integer","unixTimestamp","sort"]
+      }
+      else if (a.type.includes("float")){
         a.type = "float"
+        a.possibleTypes = ["integer","unixTimestamp","sort"]
+      }
       else if (a.type.includes("bool"))
         a.type = "boolean"
       else if (a.type.includes("enum"))
         a.type = "string"
       else if (a.type.includes("uuid"))
         a.type = "uuid"
-      else
+      else {
         a.type = "string"
-      switch (a.type) {
-        case "int":
-          a.type = "integer"
-          break;
-
-        default:
-          break;
+        a.possibleTypes = ["string","uuid","nanoid","encryption","datetimeTz","datetime"]
       }
-      const f = { ...a, interface: a.type, uiSchema: { title: a.name } }
+      const f = { 
+        ...a, 
+        
+        interface: a.type, 
+        uiSchema: { 
+          type: ['integer','float'].includes(a.type)?"number":"string" ,
+          title: a.name,
+          "x-validator":a.type,
+          "x-component": "Input",
+          "x-component-props":{
+            stringMode:true,
+            step:1
+          },
+        } 
+      }
       return f
     })
+    console.log(formated)
     return formated
   }
 
+
+
   async load(options: LoadDataSourceOptions) {
     console.log("[CLICKHOUSE PL] load", options)
-    this.emitLoadingProgress({ loaded: 20, total: 100 })
+    this.emitLoadingProgress({ loaded: 0.1, total: 1 })
 
     const tables = await this.getDBTables()
 
-    this.emitLoadingProgress({ loaded: 50, total: 100 })
+    this.emitLoadingProgress({ loaded: 0.2, total: 1 })
 
     for (const tableName of tables) {
       let fields = await this.getTableFIeldTypes(tableName)
@@ -108,7 +122,10 @@ export class ClickHouseDataSource extends DataSource {
         })
         fields = merged
       }
+      console.log(fields)
       const collection = {
+        collectionType:"table",
+        isSystem:false,
         fields: fields,
         name: tableName,
         title: options.localData?.[tableName]?.title ?? tableName,
@@ -118,7 +135,7 @@ export class ClickHouseDataSource extends DataSource {
       this.collectionManager.defineCollection(collection)
     }
 
-    this.emitLoadingProgress({ loaded: 100, total: 100 })
+    this.emitLoadingProgress({ loaded: 1, total: 1 })
   }
 
   // Nome da fonte de dados
