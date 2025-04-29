@@ -41,8 +41,11 @@ export class ClickhouseRepository implements IRepository {
     return query
   }
 
-  generateDeleteQuery({ filterByTk }: { filterByTk: Record<string, string | string[]>[] }) {
+  generateDeleteQuery({ filterByTk }: { filterByTk: Record<string, string | string[]>|Record<string, string | string[]>[] }) {
     let whereClause = ""
+    if(!Array.isArray(filterByTk)){
+      filterByTk = [filterByTk]
+    } 
     for (const c of filterByTk) {
       let cl = ""
       for (const key of Object.keys(c)) {
