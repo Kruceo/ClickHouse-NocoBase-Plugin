@@ -6,27 +6,28 @@ export class ClickHouseDataSource extends DataSource {
   private __name: string
   private __database: string;
   ch: ClickHouseClient;
-  
   constructor(options) {
-    console.log("[CLICKHOUSE PL] construindo datasource", options)
+    console.log("[CLICKHOUSE PL] creating datasource", options)
     super(options)
-    this.ch = createClient({
-      username: options.username,
-      password: options.password == "" ? undefined : options.password,
-      database: options.database,
-      url: `${options.useSSL ? "https" : "http"}://${options.host}:${options.port}`
-    })
+    // ch (clickhouse is defined at createCollectionManager)
     console.log(this.acl.getAvailableActions())
     this.__database = options.database
     this.__name = options.name
   }
-   getDialect() {
+  static getDialect() {
     console.log("get dialect bro")
     return "mysql";
   }
   // Retorna um gerenciador de coleção (deve ser implementado)sa
   createCollectionManager(options?: any) {
-    return new ClickhouseCollectionManager(options)
+    if (!this.ch)
+      this.ch = createClient({
+        username: options.username,
+        password: options.password == "" ? undefined : options.password,
+        database: options.database,
+        url: `${options.useSSL ? "https" : "http"}://${options.host}:${options.port}`
+      })
+    return new ClickhouseCollectionManager({ options, ch: this.ch })
   }
 
   // extra
@@ -53,42 +54,55 @@ export class ClickHouseDataSource extends DataSource {
         `.trim()
     })
 
-    const d = await res.json<{ type: string, name: string, possibleTypes?:string[],rawType?:string }>()
+    const d = await res.json<{ type: string, name: string, possibleTypes?: string[], rawType?: string }>()
     const formated = d.data.map((a) => {
       a.rawType = a.type
       a.type = a.type.toLowerCase()
-      if (a.type.includes("int")){
+      if (a.type.includes("int")) {
         a.type = "integer"
-        a.possibleTypes = ["integer","unixTimestamp","sort"]
+        a.possibleTypes = ["integer", "unixTimestamp", "sort"]
+        a["x-component"] = "InputNumber"
+        a["x-component-props"] = {
+          stringMode: true,
+          step: 1
+        }
       }
-      else if (a.type.includes("float")){
+      else if (a.type.includes("float")) {
         a.type = "float"
-        a.possibleTypes = ["integer","unixTimestamp","sort"]
+        a.possibleTypes = ["integer", "unixTimestamp", "sort"]
+        a["x-component"] = "InputNumber"
+        a["x-component-props"] = {
+          stringMode: true,
+          step: 1
+        }
       }
       else if (a.type.includes("bool"))
         a.type = "boolean"
+      else if (a.type.includes("date")) {
+        a.type = "datetime"
+        a.possibleTypes = ["datetime", "datetimeTz"]
+        a["x-component"] = "DatePicker"
+        a["x-component-props"] = {
+
+        }
+      }
       else if (a.type.includes("enum"))
         a.type = "string"
       else if (a.type.includes("uuid"))
         a.type = "uuid"
       else {
         a.type = "string"
-        a.possibleTypes = ["string","uuid","nanoid","encryption","datetimeTz","datetime"]
+        a.possibleTypes = ["string", "uuid", "nanoid", "encryption", "datetimeTz", "datetime"]
       }
-      const f = { 
-        ...a, 
-        
-        interface: a.type, 
-        uiSchema: { 
-          type: ['integer','float'].includes(a.type)?"number":"string" ,
+      const f = {
+        ...a,
+
+        interface: a.type,
+        uiSchema: {
+          type: ['integer', 'float'].includes(a.type) ? "number" : "string",
           title: a.name,
-          "x-validator":a.type,
-          "x-component": "Input",
-          "x-component-props":{
-            stringMode:true,
-            step:1
-          },
-        } 
+          "x-validator": a.type
+        }
       }
       return f
     })
@@ -124,8 +138,8 @@ export class ClickHouseDataSource extends DataSource {
       }
       console.log(fields)
       const collection = {
-        collectionType:"table",
-        isSystem:false,
+        collectionType: "table",
+        isSystem: false,
         fields: fields,
         name: tableName,
         title: options.localData?.[tableName]?.title ?? tableName,
@@ -143,3 +157,4 @@ export class ClickHouseDataSource extends DataSource {
     return this.__name;
   }
 }
+
