@@ -1,21 +1,40 @@
 {
-  "name": "@kruceo/clickhouse-datasource",
+  "name": "@kruceo/clickhouse-datasource-6",
+  "displayName": "Data Source: External ClickHouse",
+  "description": "Connects to an external ClickHouse instance for fast, scalable analytics on large datasets.",
+  "description-pt-BR":"Conecta-se a uma instância externa do ClickHouse para análises rápidas e escaláveis em grandes volumes de dados.",
   "author": {
     "email": "contact@kruceo.com",
     "name": "kruceo",
     "url": "https://github.com/kruceo"
   },
-  "version": "0.1.0",
+  "type": "module",
+  "version": "0.0.4",
   "main": "dist/server/index.js",
-  "dependencies": {
-    "@clickhouse/client": "^1.11.1"
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@clickhouse/client": "^1.11.1",
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-replace": "^6.0.2",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "rollup": "^4.40.1",
+    "rollup-plugin-banner2": "^1.3.1",
+    "rollup-plugin-terser": "^7.0.2",
+    "typescript": "^5.8.3"
   },
   "peerDependencies": {
     "@nocobase/client": "1.x",
+    "@nocobase/plugin-data-source-manager": "1.x",
     "@nocobase/server": "1.x",
     "@nocobase/test": "1.x"
   },
   "keywords": [
     "Data sources"
-  ]
+  ],
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "yarn rollup -c && bash genPluginGzip.sh"
+  },
+  "gitHead":"mkmomoinnibibubibibi"
 }
