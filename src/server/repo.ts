@@ -1,17 +1,17 @@
 import { ClickHouseClient } from "@clickhouse/client";
-import { FindOptions, IModel, IRepository } from "@nocobase/data-source-manager"
+import { IModel, IRepository } from "@nocobase/data-source-manager"
 import { generateWhereClause } from "./clickhouseUtils";
 
 export class ClickhouseRepository implements IRepository {
   private ch: ClickHouseClient;
   private selectedTable: string;
-  constructor(opt) {
+  constructor(opt: { collectionManager: { dataSource: { ch: ClickHouseClient } }, options: { name: string } }) {
     this.ch = opt.collectionManager.dataSource.ch
     this.selectedTable = opt.options.name
   }
 
   // helpers
-  generateQuery(options) {
+  generateQuery(options: QueryOptions) {
     const { limit, offset, sort, filter } = options
 
     const sortDirection = sort?.at(0)?.startsWith("-") ? "DESC" : "ASC"
@@ -28,7 +28,7 @@ export class ClickhouseRepository implements IRepository {
     return query
   }
 
-  generateCountQuery(options) {
+  generateCountQuery(options: QueryOptions) {
     const { filter } = options
 
     const whereClause = generateWhereClause(filter)
@@ -41,11 +41,11 @@ export class ClickhouseRepository implements IRepository {
     return query
   }
 
-  generateDeleteQuery({ filterByTk }: { filterByTk: Record<string, string | string[]>|Record<string, string | string[]>[] }) {
+  generateDeleteQuery({ filterByTk }: SpecificTargetQueryOptions) {
     let whereClause = ""
-    if(!Array.isArray(filterByTk)){
+    if (!Array.isArray(filterByTk)) {
       filterByTk = [filterByTk]
-    } 
+    }
     for (const c of filterByTk) {
       let cl = ""
       for (const key of Object.keys(c)) {
@@ -64,7 +64,7 @@ export class ClickhouseRepository implements IRepository {
   }
 
   // originals from IRepository
-  async find(options: { sort?: string[], offset: number, limit: number, filter: any }): Promise<IModel[]> {
+  async find(options: QueryOptions): Promise<IModel[]> {
     console.log("[CLICKHOUSE PL] find", options);
 
     const query = this.generateQuery(options)
@@ -111,7 +111,7 @@ export class ClickhouseRepository implements IRepository {
     return results[0]
   }
 
-  async count(options?: any): Promise<Number> {
+  async count(options: QueryOptions): Promise<Number> {
     console.log("[CLICKHOUSE PL] count")
 
     const res = await this.ch.query({
@@ -132,25 +132,23 @@ export class ClickhouseRepository implements IRepository {
   async create({ values }: { values: Record<string, string | number> }) {
     console.log("[CLICKHOUSE PL] create", values)
     const keysStr = Object.keys(values)
-    const valuesStr = keysStr.map(e=>values[e]).reduce((ac,ne)=>`,'${ne}'${ac}`,"").toString().slice(1)
+    const valuesStr = keysStr.map(e => values[e]).reduce((ac, ne) => `,'${ne}'${ac}`, "").toString().slice(1)
     const query = `
       INSERT INTO ${this.selectedTable} (${keysStr.reverse().toString()}) 
       VALUES (${valuesStr});
     `
     console.log(query)
-    await this.ch.command({query})
+    await this.ch.command({ query })
   }
 
-  async update({ filter, values }) {
+  async update(opt: { filter: Filter, values: any }) {
     throw new Error("Not implemented")
   }
 
-  async destroy(options) {
+  async destroy(options: SpecificTargetQueryOptions) {
     console.log("[CLICKHOUSE PL] delete")
 
     const query = this.generateDeleteQuery(options)
-
-    console.log(query)
 
     await this.ch.query({
       query: query

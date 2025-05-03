@@ -1,43 +1,57 @@
-import { DataSource, ICollectionManager, SequelizeDataSource } from "@nocobase/data-source-manager"
+import { DataSource } from "@nocobase/data-source-manager"
 import { ClickhouseCollectionManager } from "./collectionManager";
-import { ClickHouseClient, createClient } from "@clickhouse/client";
+import {createClient} from "@clickhouse/client";
 
-export class ClickHouseDataSource extends DataSource {
+interface CHDataSourceOptions {
+  database: string, host: string, port: string, name: string, password: string, username: string, useSSL?: boolean
+}
+
+function createClickHouseClientFromOptions(options: CHDataSourceOptions) {
+  return createClient({
+    username: options.username,
+    password: options.password == "" ? undefined : options.password,
+    database: options.database,
+    url: `${options.useSSL ? "https" : "http"}://${options.host}:${options.port}`
+  })
+}
+
+class ClickHouseDataSource extends DataSource {
   private __name: string
   private __database: string;
-  ch: ClickHouseClient;
-  constructor(options) {
-    console.log("[CLICKHOUSE PL] creating datasource", options)
+  ch: ReturnType<typeof createClient>;
+  constructor(options: CHDataSourceOptions) {
+    // console.log("[CLICKHOUSE PL] creating datasource", options)
     super(options)
-    // ch (clickhouse is defined at createCollectionManager)
-    console.log(this.acl.getAvailableActions())
+
+    this.ch = this.initClickHouseClientFromOptions(options)
+
     this.__database = options.database
     this.__name = options.name
   }
   static getDialect() {
-    console.log("get dialect bro")
     return "mysql";
   }
-  // Retorna um gerenciador de coleção (deve ser implementado)sa
-  createCollectionManager(options?: any) {
-    if (!this.ch)
-      this.ch = createClient({
-        username: options.username,
-        password: options.password == "" ? undefined : options.password,
-        database: options.database,
-        url: `${options.useSSL ? "https" : "http"}://${options.host}:${options.port}`
-      })
-    return new ClickhouseCollectionManager({ options, ch: this.ch })
+
+  static async testConnection(options:CHDataSourceOptions): Promise<boolean> {
+    const client = createClickHouseClientFromOptions(options)
+    const res = await client.ping()
+    return res.success
   }
 
+  
+
   // extra
+  initClickHouseClientFromOptions(options: CHDataSourceOptions) {
+    if (!this.ch) this.ch = createClickHouseClientFromOptions(options)
+    return this.ch
+  }
+
   async getDBTables() {
     const res = await this.ch.query({
       query: "show TABLES",
       format: "JSON"
     })
     const data = (await res.json()).data as { name: string }[]
-    console.log(data)
     return data.map(e => e.name)
   }
 
@@ -54,7 +68,7 @@ export class ClickHouseDataSource extends DataSource {
         `.trim()
     })
 
-    const d = await res.json<{ type: string, name: string, possibleTypes?: string[], rawType?: string }>()
+    const d = await res.json<{ type: string, name: string, possibleTypes?: string[], rawType?: string, [key: string]: any }>()
     const formated = d.data.map((a) => {
       a.rawType = a.type
       a.type = a.type.toLowerCase()
@@ -106,14 +120,17 @@ export class ClickHouseDataSource extends DataSource {
       }
       return f
     })
-    console.log(formated)
     return formated
   }
 
 
+  // Retorna um gerenciador de coleção (deve ser implementado)sa
+  createCollectionManager(options: CHDataSourceOptions) {
+    return new ClickhouseCollectionManager({ options, ch: this.initClickHouseClientFromOptions(options) })
+  }
 
   async load(options: LoadDataSourceOptions) {
-    console.log("[CLICKHOUSE PL] load", options)
+    // console.log("[CLICKHOUSE PL] load", options)
     this.emitLoadingProgress({ loaded: 0.1, total: 1 })
 
     const tables = await this.getDBTables()
@@ -158,3 +175,4 @@ export class ClickHouseDataSource extends DataSource {
   }
 }
 
+export default ClickHouseDataSource

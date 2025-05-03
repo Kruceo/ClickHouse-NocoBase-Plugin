@@ -7,8 +7,7 @@ import { ClickHouseClient } from "@clickhouse/client"
 export class FakeDatabase extends Database {
     ch: ClickHouseClient
     collectionManager: ClickhouseCollectionManager
-    constructor(options:{dialect:"mysql"|"mariadb",ch:ClickHouseClient,collectionManager:ClickhouseCollectionManager}) {
-        console.log("FAKE DB",options)
+    constructor(options: { dialect: "mysql" | "mariadb", ch: ClickHouseClient, collectionManager: ClickhouseCollectionManager }) {
         super(options)
         this.ch = options.ch
         this.collectionManager = options.collectionManager
@@ -28,7 +27,8 @@ export class FakeDatabase extends Database {
             context: { database: this },
             model: {
                 getAttributes: () => attributes, associations: {}, // é bom arrumar essa bagaça depois
-                findAll: async (opt) => {
+                // opt is a sequelize query options
+                findAll: async (opt: any) => {
                     const p = this.sequelize.getQueryInterface().queryGenerator as { selectQuery: (table: string, options: any) => string }
                     const query = p.selectQuery(name, opt)
                     const res = await this.ch.query({ query: query, format: "JSON" })

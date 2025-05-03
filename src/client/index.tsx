@@ -1,7 +1,6 @@
 import { Plugin, SchemaComponent, Space } from '@nocobase/client';
-import React from 'react';
 
-const pluginName = "vascão"
+const pluginName = "ClickHouse"
 
 function DataSourceForm() {
 
@@ -88,7 +87,7 @@ function DataSourceForm() {
   );
 }
 
-export class PluginHelloClient extends Plugin {
+class PluginClickHouse extends Plugin {
 
   async afterAdd() { }
 
@@ -103,4 +102,5 @@ export class PluginHelloClient extends Plugin {
   }
 }
 
-export default PluginHelloClient;
+export default PluginClickHouse;
+export { PluginClickHouse }

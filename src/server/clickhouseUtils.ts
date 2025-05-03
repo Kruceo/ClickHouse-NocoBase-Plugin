@@ -23,7 +23,7 @@ export function generateWhereClause(filter: Record<string, any>) {
 }
 
 
-function verifyObj(obj, p: { clause: string }, lo: LogicalOperators) {
+function verifyObj(obj: Record<string, any>, p: { clause: string }, lo: LogicalOperators) {
     const keys = Object.keys(obj)
 
     let hasBracket = false
@@ -72,7 +72,7 @@ function normalizeValue(value: string | number) {
     return `${typeof value == "string" ? `'${value}'` : value}`
 }
 
-function convertQuarterDate(input) {
+function convertQuarterDate(input: string) {
     const match = input.match(/^(\d{4})Q([1-4])-(\d{2}):(\d{2})$/);
     if (!match) {
         throw new Error('Bad format');
@@ -84,40 +84,37 @@ function convertQuarterDate(input) {
     const minute = match[4];
 
     // Primeiro mês de cada trimestre
-    const quarterStartMonths = {
+    const quarterStartMonths: Record<number, string> = {
         1: '01', // Q1 -> Janeiro
         2: '04', // Q2 -> Abril
         3: '07', // Q3 -> Julho
         4: '10', // Q4 -> Outubro
     };
 
-    const month = quarterStartMonths[quarter];
+    const month: string = quarterStartMonths[quarter];
 
     return `${year}-${month}-01 ${hour}:${minute}:00`;
 }
 
 function normalizeDateValue(value: string, moment?: "last" | "first" | "none") {
-    
+
     if (/\d+Q\d-/.test(value)) {
         return convertQuarterDate(value)
     }
     else {
-        const splitPattern =/(?<=\d\d) (?=\d\d:)/
-        let fd = value.toString().split(splitPattern,2)
-        console.log(fd)
-        if(fd.length == 1){
+        const splitPattern = /(?<=\d\d) (?=\d\d:)/
+        let fd = value.toString().split(splitPattern, 2)
+        if (fd.length == 1) {
             // case the input dont have a timestamp (eg. 2020-12-10-03:00)
             // this case just have date + timestamp
             // this part of code add a 'zero' timestamp
-            value = value.replace(/(-|\+)\d\d:\d\d/,(gg)=>` 00:00:00${gg}`)
-            fd = value.split(splitPattern,2)
+            value = value.replace(/(-|\+)\d\d:\d\d/, (gg) => ` 00:00:00${gg}`)
+            fd = value.split(splitPattern, 2)
         }
-        const [time,timezone] = fd[1].split(/(?=\+|-)/)
-        console.log("timezone",timezone)
+        const [time, timezone] = fd[1].split(/(?=\+|-)/)
         const t = time.split(":")
 
         // just hour and minute
-        console.log(t)
         if (t.length == 2) {
             t.push("00")
         }
@@ -143,8 +140,7 @@ function normalizeDateValue(value: string, moment?: "last" | "first" | "none") {
     }
 }
 
-function parseConditions(op, value) {
-    console.log(op, value)
+function parseConditions(op: string, value: string | number | string[]) {
     switch (op) {
         case "$gt":
             return `> ${value}`;
@@ -155,9 +151,11 @@ function parseConditions(op, value) {
         case "$gte":
             return `>= ${value}`;
         case "$eq":
-            return `= ${normalizeValue(value)}`;
+            if (typeof value == "number" || typeof value == "string")
+                return `= ${normalizeValue(value)}`;
         case "$ne":
-            return `!= ${normalizeValue(value)}`;
+            if (typeof value == "number" || typeof value == "string")
+                return `!= ${normalizeValue(value)}`;
 
         case "$includes":
             return `LIKE '%${value}%'`;
@@ -169,33 +167,37 @@ function parseConditions(op, value) {
             return `IS NOT NULL`;
 
         case "$dateOn":
-            return `= ${normalizeDateValue(value)}`;
+            return `= ${normalizeDateValue(value.toString())}`;
         case "$dateNotOn":
-            return `!= ${normalizeDateValue(value)}`;
+            return `!= ${normalizeDateValue(value.toString())}`;
         case "$dateBefore":
-            return `< ${normalizeDateValue(value, "first")}`;
+            return `< ${normalizeDateValue(value.toString(), "first")}`;
         case "$dateAfter":
-            return `> ${normalizeDateValue(value, "last")}`;
+            return `> ${normalizeDateValue(value.toString(), "last")}`;
         case "$dateNotBefore":
-            return `>= ${normalizeDateValue(value, "last")}`;
+            return `>= ${normalizeDateValue(value.toString(), "last")}`;
         case "$dateNotAfter":
-            return `<= ${normalizeDateValue(value, "first")}`;
+            return `<= ${normalizeDateValue(value.toString(), "first")}`;
 
         case "$in":
-            return `IN [${value.reduce((ac, ne) => `,'${ne}'${ac}`, "").slice(1)}]`;
+            if (Array.isArray(value))
+                return `IN [${value.reduce((ac, ne) => `,'${ne}'${ac}`, "").slice(1)}]`;
         case "$notIn":
-            return `IN [${value.reduce((ac, ne) => `,'${ne}'${ac}`, "").slice(1)}]`;
+            if (Array.isArray(value))
+                return `IN [${value.reduce((ac, ne) => `,'${ne}'${ac}`, "").slice(1)}]`;
 
         case "$isTruly":
             return ` = true`;
         case "$isFalsy":
             return ` = false`;
         case "$notIn":
-            return `IN [${value.reduce((ac, ne) => `,'${ne}'${ac}`, "").slice(1)}]`;
+            if (Array.isArray(value))
+                return `IN [${value.reduce((ac, ne) => `,'${ne}'${ac}`, "").slice(1)}]`;
 
         case "$dateBetween":
-            return `BETWEEN ${normalizeDateValue(value[0] + value[3], "first")} AND ${normalizeDateValue(value[1] + value[3], "last")}`;
+            if (Array.isArray(value))
+                return `BETWEEN ${normalizeDateValue(value[0] + value[3], "first")} AND ${normalizeDateValue(value[1] + value[3], "last")}`;
         default:
-            throw new Error(`Operador desconhecido: ${op}`);
+            throw new Error(`Unknown Operator: ${op}`);
     }
 }
