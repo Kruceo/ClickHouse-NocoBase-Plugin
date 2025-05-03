@@ -1,21 +1,20 @@
 {
-  "name": "@kruceo/clickhouse-datasource-6",
+  "name": "@kruceo/clickhouse-datasource",
   "displayName": "Data Source: External ClickHouse",
   "description": "Connects to an external ClickHouse instance for fast, scalable analytics on large datasets.",
-  "description-pt-BR":"Conecta-se a uma instância externa do ClickHouse para análises rápidas e escaláveis em grandes volumes de dados.",
+  "description-pt-BR": "Conecta-se a uma instância externa do ClickHouse para análises rápidas e escaláveis em grandes volumes de dados.",
   "author": {
     "email": "contact@kruceo.com",
     "name": "kruceo",
     "url": "https://github.com/kruceo"
   },
-  "type": "module",
   "version": "0.0.4",
   "main": "dist/server/index.js",
   "devDependencies": {
-    "@rollup/plugin-node-resolve": "^16.0.1",
     "@clickhouse/client": "^1.11.1",
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-typescript": "^12.1.2",
     "rollup": "^4.40.1",
@@ -34,7 +33,10 @@
   ],
   "license": "UNLICENSED",
   "scripts": {
-    "build": "yarn rollup -c && bash genPluginGzip.sh"
+    "addlicense":"node scripts/addBanner.js dist",
+    "build": "O=$(realpath ./) && cd ../ && yarn build @kruceo/clickhouse-datasource && cd $O && yarn addlicense && bash scripts/genPluginGzip.sh"
   },
-  "gitHead":"mkmomoinnibibubibibi"
+  "dependencies": {
+    "typescript": "^5.8.3"
+  }
 }

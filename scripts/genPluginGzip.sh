@@ -8,10 +8,9 @@ cp client.d.ts ./dist/package
 cp package.json ./dist/package
 cp README.md ./dist/package
 cp LICENSE ./dist/package
-cd dist
-tar -czf kclickhouse-database-plugin.tgz package/
-cd ..
+cd dist/package
+tar -czf ../clickhouse-database-plugin.tgz ./
+cd ../..
 
-# cp -r .dist/* dist
-# rm -r .dist
+rm -r .dist
 # rm -r dist/package
